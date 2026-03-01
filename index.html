@@ -107,7 +107,7 @@
 
     /* ===== FORM ELEMENTS ===== */
     label { display: block; font-size: 0.85rem; color: var(--text2); margin-bottom: 6px; font-family: sans-serif; }
-    input[type="text"], input[type="number"], input[type="date"], textarea, select {
+    input[type="text"], input[type="number"], input[type="date"], input[type="url"], textarea, select {
       width: 100%;
       background: var(--bg3);
       border: 1px solid var(--border);
@@ -121,6 +121,9 @@
       resize: vertical;
     }
     input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+    .goal-url-link { display: inline-flex; align-items: center; gap: 5px; font-size: 0.82rem; color: var(--blue); text-decoration: none; font-family: sans-serif; word-break: break-all; }
+    .goal-url-link:hover { text-decoration: underline; }
+    .goal-memo { font-size: 0.85rem; color: var(--text2); line-height: 1.7; white-space: pre-wrap; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
     textarea { min-height: 120px; }
     .form-row { display: grid; gap: 14px; margin-bottom: 14px; }
     .form-row.cols2 { grid-template-columns: 1fr 1fr; }
@@ -525,6 +528,18 @@
         <input type="date" id="goal-deadline" />
       </div>
     </div>
+    <div class="form-row">
+      <div>
+        <label>参考サイトURL（任意）</label>
+        <input type="url" id="goal-url" placeholder="https://example.com" />
+      </div>
+    </div>
+    <div class="form-row">
+      <div>
+        <label>メモ（任意）</label>
+        <textarea id="goal-memo" placeholder="この目標についての補足、戦略、参考情報など…" style="min-height:80px;"></textarea>
+      </div>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('goalModal')">キャンセル</button>
       <button class="btn btn-primary" onclick="saveGoal()">保存</button>
@@ -839,6 +854,8 @@ function openGoalModal(id) {
   document.getElementById('goal-current').value = '';
   document.getElementById('goal-unit').value = '';
   document.getElementById('goal-deadline').value = '';
+  document.getElementById('goal-url').value = '';
+  document.getElementById('goal-memo').value = '';
   if (id) {
     const g = data.goals.find(x => x.id === id);
     if (g) {
@@ -848,6 +865,8 @@ function openGoalModal(id) {
       document.getElementById('goal-current').value = g.current || 0;
       document.getElementById('goal-unit').value = g.unit || '';
       document.getElementById('goal-deadline').value = g.deadline || '';
+      document.getElementById('goal-url').value = g.url || '';
+      document.getElementById('goal-memo').value = g.memo || '';
     }
   }
   openModal('goalModal');
@@ -864,7 +883,9 @@ function saveGoal() {
     target: parseInt(document.getElementById('goal-target').value) || 0,
     current: parseInt(document.getElementById('goal-current').value) || 0,
     unit: document.getElementById('goal-unit').value.trim() || unitDefaults[typeVal] || '',
-    deadline: document.getElementById('goal-deadline').value || ''
+    deadline: document.getElementById('goal-deadline').value || '',
+    url: document.getElementById('goal-url').value.trim() || '',
+    memo: document.getElementById('goal-memo').value.trim() || ''
   };
   if (id) {
     const i = data.goals.findIndex(x => x.id === id);
@@ -932,6 +953,8 @@ function renderGoals() {
         ${(g.current||0).toLocaleString()} / ${(g.target||0).toLocaleString()} ${escHtml(g.unit||'')}
         ${g.deadline ? ` &nbsp;·&nbsp; 期限: ${fmtDate(g.deadline)} ${deadline}` : ''}
       </div>
+      ${g.url ? `<div style="margin-top:8px;"><a class="goal-url-link" href="${escHtml(g.url)}" target="_blank" rel="noopener noreferrer">🔗 ${escHtml(g.url)}</a></div>` : ''}
+      ${g.memo ? `<div class="goal-memo">${escHtml(g.memo)}</div>` : ''}
       <div class="goal-actions">
         <button class="btn btn-ghost btn-sm" onclick="openProgressModal('${g.id}')">📊 進捗更新</button>
         <button class="btn btn-ghost btn-sm" onclick="openGoalModal('${g.id}')">✏️ 編集</button>
