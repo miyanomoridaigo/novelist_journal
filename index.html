@@ -1418,6 +1418,50 @@ function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// ===== STARTUP CLOUD LOAD =====
+async function autoLoadFromCloud() {
+  if (!cloudSettings.url || !cloudSettings.anonKey) {
+    // クラウド未設定かつローカルも空なら案内を表示
+    const hasLocal = data.logs.length || data.goals.length || data.inspo.length;
+    if (!hasLocal) {
+      setTimeout(() => showToast('☁ ヘッダーの同期ボタンからSupabaseを設定するとデータを同期できます'), 800);
+    }
+    return;
+  }
+  try {
+    const res = await fetch(supabaseBase() + '?select=key,data,updated_at', { headers: supabaseHeaders() });
+    if (!res.ok) return;
+    const rows = await res.json();
+    if (!rows.length) return;
+
+    // クラウド側の最終更新日時を取得
+    const cloudUpdatedAt = rows.reduce((max, r) => (r.updated_at > max ? r.updated_at : max), '');
+    const localUpdatedAt = cloudSettings.lastSync || '';
+    const hasLocal = data.logs.length || data.goals.length || data.inspo.length;
+
+    // ローカルにデータがない、またはクラウドの方が新しい場合のみ読み込む
+    if (!hasLocal || cloudUpdatedAt > localUpdatedAt) {
+      const newData = { logs: [], goals: [], inspo: [] };
+      rows.forEach(row => {
+        if (row.key === 'logs')  newData.logs  = row.data?.items || [];
+        if (row.key === 'goals') newData.goals = row.data?.items || [];
+        if (row.key === 'inspo') newData.inspo = row.data?.items || [];
+      });
+      data = newData;
+      saveLocal();
+      cloudSettings.lastSync = cloudUpdatedAt || new Date().toISOString();
+      saveCloudSettings();
+      updateSyncStatus();
+      updateCloudLastSync();
+      renderDashboard();
+      showToast(hasLocal ? '☁ 最新データをクラウドから同期しました' : '☁ クラウドからデータを読み込みました');
+    }
+    // ローカルが新しければ何もしない（次のsave()時に自動でクラウドへ反映される）
+  } catch(e) {
+    console.warn('[AutoLoad]', e.message);
+  }
+}
+
 // ===== INIT =====
 function init() {
   load();
@@ -1426,6 +1470,7 @@ function init() {
   document.getElementById('headerDate').textContent = d.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
   renderDashboard();
   updateSyncStatus();
+  autoLoadFromCloud(); // 起動時にクラウドから自動読み込み
 }
 
 init();
