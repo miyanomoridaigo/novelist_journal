@@ -641,31 +641,41 @@
 <!-- Cloud Sync Modal -->
 <div class="modal-overlay" id="cloudModal">
   <div class="modal">
-    <div class="modal-title">☁ クラウド同期設定（GitHub Gist）</div>
-    <p style="font-size:0.82rem;color:var(--text2);margin-bottom:16px;line-height:1.8;">
-      GitHub Gistを使ってデータを無料で保存・共有できます。<br>
-      <a href="https://github.com/settings/tokens/new?scopes=gist&description=novelist-journal" target="_blank" rel="noopener" style="color:var(--blue);">① ここでトークンを取得</a>（スコープ: <code style="background:var(--bg3);padding:1px 5px;border-radius:3px;">gist</code> のみ選択）し、下に貼り付けてください。
+    <div class="modal-title">☁ クラウド同期設定（Supabase）</div>
+    <p style="font-size:0.82rem;color:var(--text2);margin-bottom:12px;line-height:1.8;">
+      <a href="https://supabase.com" target="_blank" rel="noopener" style="color:var(--blue);">supabase.com</a> で無料プロジェクトを作成し、SQLエディタで下のSQLを実行後、URLとAnon Keyを入力してください。
     </p>
+    <details style="margin-bottom:14px;">
+      <summary style="cursor:pointer;color:var(--accent);font-size:0.82rem;font-family:sans-serif;user-select:none;">▶ セットアップ用SQL（クリックで表示）</summary>
+      <pre style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:12px;font-size:0.75rem;overflow-x:auto;margin-top:8px;color:var(--text2);white-space:pre;">create table journal_data (
+  key text primary key,
+  data jsonb,
+  updated_at timestamptz default now()
+);
+alter table journal_data enable row level security;
+create policy "allow all" on journal_data for all using (true);</pre>
+    </details>
     <div class="form-row">
       <div>
-        <label>GitHub Personal Access Token</label>
-        <input type="password" id="cloud-token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off" />
-        <div class="field-hint">⚠ このトークンはブラウザのlocalStorageに保存されます。共有PCでは使用しないでください。</div>
+        <label>Supabase Project URL</label>
+        <input type="text" id="cloud-url" placeholder="https://xxxxxxxxxxxx.supabase.co" autocomplete="off" />
       </div>
     </div>
     <div class="form-row">
       <div>
-        <label>Gist ID（初回「クラウドへ保存」時に自動入力されます）</label>
-        <input type="text" id="cloud-gist-id" placeholder="初回保存後に自動入力" />
+        <label>Anon Key（Project Settings → API → Project API keys）</label>
+        <input type="password" id="cloud-anon-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." autocomplete="off" />
+        <div class="field-hint">⚠ このキーはブラウザのlocalStorageに保存されます。共有PCでは使用しないでください。</div>
       </div>
     </div>
-    <div id="cloudLastSync" style="font-size:0.8rem;color:var(--text3);font-family:sans-serif;margin-bottom:16px;min-height:1.2em;"></div>
+    <div id="cloudLastSync" style="font-size:0.8rem;color:var(--text3);font-family:sans-serif;margin-bottom:12px;min-height:1.2em;"></div>
+    <div style="font-size:0.78rem;color:var(--green);font-family:sans-serif;margin-bottom:14px;">✅ 設定後は執筆ログ・目標・メモを保存するたびに自動同期されます（3秒後）</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
-      <button class="btn btn-primary" onclick="syncToCloud()">☁ クラウドへ保存</button>
+      <button class="btn btn-primary" onclick="syncToCloud(false)">☁ 今すぐ保存</button>
       <button class="btn btn-ghost" onclick="syncFromCloud()">☁ クラウドから読み込む</button>
     </div>
     <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeModal('cloudModal')">閉じる</button>
+      <button class="btn btn-ghost" onclick="saveCloudInputsAndClose()">保存して閉じる</button>
     </div>
   </div>
 </div>
@@ -687,8 +697,12 @@ function load() {
     if (saved) data = JSON.parse(saved);
   } catch(e) {}
 }
-function save() {
+function saveLocal() {
   localStorage.setItem('novelist_journal_v1', JSON.stringify(data));
+}
+function save() {
+  saveLocal();
+  autoSync();
 }
 
 // ===== UTILS =====
@@ -1265,9 +1279,16 @@ function calcDailyTarget(g) {
   return { remainDays, dailyNeeded, remaining };
 }
 
-// ===== CLOUD SYNC (GitHub Gist) =====
+// ===== CLOUD SYNC (Supabase) =====
 const CLOUD_KEY = 'novelist_cloud_v1';
-let cloudSettings = { token: '', gistId: '', lastSync: null };
+let cloudSettings = { url: '', anonKey: '', lastSync: null };
+let autoSyncTimer = null;
+
+function autoSync() {
+  if (!cloudSettings.url || !cloudSettings.anonKey) return;
+  clearTimeout(autoSyncTimer);
+  autoSyncTimer = setTimeout(() => syncToCloud(true), 3000);
+}
 
 function loadCloudSettings() {
   const saved = localStorage.getItem(CLOUD_KEY);
@@ -1278,16 +1299,23 @@ function saveCloudSettings() {
   localStorage.setItem(CLOUD_KEY, JSON.stringify(cloudSettings));
 }
 
+function saveCloudInputsAndClose() {
+  readCloudInputs();
+  saveCloudSettings();
+  updateSyncStatus();
+  closeModal('cloudModal');
+}
+
 function openCloudModal() {
-  document.getElementById('cloud-token').value = cloudSettings.token || '';
-  document.getElementById('cloud-gist-id').value = cloudSettings.gistId || '';
+  document.getElementById('cloud-url').value = cloudSettings.url || '';
+  document.getElementById('cloud-anon-key').value = cloudSettings.anonKey || '';
   updateCloudLastSync();
   openModal('cloudModal');
 }
 
 function readCloudInputs() {
-  cloudSettings.token = document.getElementById('cloud-token').value.trim();
-  cloudSettings.gistId = document.getElementById('cloud-gist-id').value.trim();
+  cloudSettings.url = document.getElementById('cloud-url').value.trim();
+  cloudSettings.anonKey = document.getElementById('cloud-anon-key').value.trim();
 }
 
 function updateCloudLastSync() {
@@ -1301,60 +1329,81 @@ function updateSyncStatus() {
   const dot = document.getElementById('syncDot');
   const status = document.getElementById('syncStatus');
   if (!dot || !status) return;
-  if (cloudSettings.token && cloudSettings.gistId) {
-    dot.className = 'sync-dot ok'; status.textContent = '☁ 同期済';
+  if (cloudSettings.url && cloudSettings.anonKey) {
+    dot.className = 'sync-dot ok'; status.textContent = '☁ 自動同期中';
   } else {
     dot.className = 'sync-dot warn'; status.textContent = '☁ 同期';
   }
 }
 
-async function syncToCloud() {
-  readCloudInputs();
-  if (!cloudSettings.token) { showToast('⚠️ GitHub Tokenを入力してください'); return; }
-  const fileBody = { files: { 'novelist_journal.json': { content: JSON.stringify(data, null, 2) } } };
-  showToast('⏳ 保存中...');
+// Supabase REST base URL helper
+function supabaseBase() {
+  return cloudSettings.url.replace(/\/$/, '') + '/rest/v1/journal_data';
+}
+function supabaseHeaders(extra) {
+  return Object.assign({
+    'apikey': cloudSettings.anonKey,
+    'Authorization': `Bearer ${cloudSettings.anonKey}`,
+    'Content-Type': 'application/json'
+  }, extra || {});
+}
+
+// セクションごとに分割してupsert（部分更新でスケーラブル）
+async function syncToCloud(silent = false) {
+  if (!cloudSettings.url || !cloudSettings.anonKey) {
+    if (!silent) showToast('⚠️ Supabase設定を入力してください');
+    return;
+  }
+  if (!silent) showToast('⏳ 保存中...');
   try {
-    let res;
-    if (cloudSettings.gistId) {
-      res = await fetch(`https://api.github.com/gists/${cloudSettings.gistId}`, {
-        method: 'PATCH',
-        headers: { 'Authorization': `Bearer ${cloudSettings.token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(fileBody)
-      });
-    } else {
-      res = await fetch('https://api.github.com/gists', {
+    const now = new Date().toISOString();
+    const sections = [
+      { key: 'logs',  payload: data.logs  },
+      { key: 'goals', payload: data.goals },
+      { key: 'inspo', payload: data.inspo }
+    ];
+    const results = await Promise.all(sections.map(s =>
+      fetch(supabaseBase(), {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${cloudSettings.token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...fileBody, description: '小説家のジャーナル データ', public: false })
-      });
+        headers: supabaseHeaders({ 'Prefer': 'resolution=merge-duplicates' }),
+        body: JSON.stringify({ key: s.key, data: { items: s.payload }, updated_at: now })
+      })
+    ));
+    for (const res of results) {
+      if (!res.ok) {
+        const txt = await res.text().catch(() => res.status);
+        throw new Error(`HTTP ${res.status}: ${txt}`);
+      }
     }
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const json = await res.json();
-    cloudSettings.gistId = json.id;
-    cloudSettings.lastSync = new Date().toISOString();
-    document.getElementById('cloud-gist-id').value = json.id;
+    cloudSettings.lastSync = now;
     saveCloudSettings();
     updateSyncStatus();
     updateCloudLastSync();
-    showToast('☁ クラウドへ保存しました！');
-  } catch(e) { showToast(`⚠️ エラー: ${e.message}`); }
+    if (!silent) showToast('☁ クラウドへ保存しました！');
+  } catch(e) {
+    if (!silent) showToast(`⚠️ エラー: ${e.message}`);
+    else console.warn('[AutoSync]', e.message);
+  }
 }
 
+// セクションごとに取得してマージ
 async function syncFromCloud() {
-  readCloudInputs();
-  if (!cloudSettings.token || !cloudSettings.gistId) { showToast('⚠️ TokenとGist IDを入力してください'); return; }
+  if (!cloudSettings.url || !cloudSettings.anonKey) { showToast('⚠️ Supabase設定を入力してください'); return; }
   showToast('⏳ 読み込み中...');
   try {
-    const res = await fetch(`https://api.github.com/gists/${cloudSettings.gistId}`, {
-      headers: { 'Authorization': `Bearer ${cloudSettings.token}` }
-    });
+    const res = await fetch(supabaseBase() + '?select=key,data', { headers: supabaseHeaders() });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const json = await res.json();
-    const content = json.files['novelist_journal.json']?.content;
-    if (!content) throw new Error('データが見つかりません');
+    const rows = await res.json();
+    if (!rows.length) throw new Error('クラウドにデータが見つかりません');
     if (!confirm('クラウドのデータでローカルを上書きします。よろしいですか？')) return;
-    data = JSON.parse(content);
-    save();
+    const newData = { logs: [], goals: [], inspo: [] };
+    rows.forEach(row => {
+      if (row.key === 'logs')  newData.logs  = row.data?.items || [];
+      if (row.key === 'goals') newData.goals = row.data?.items || [];
+      if (row.key === 'inspo') newData.inspo = row.data?.items || [];
+    });
+    data = newData;
+    saveLocal(); // autoSyncを発火させないようsaveLocal()を使用
     cloudSettings.lastSync = new Date().toISOString();
     saveCloudSettings();
     updateSyncStatus();
