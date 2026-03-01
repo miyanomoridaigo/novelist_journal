@@ -129,6 +129,7 @@
     .linked-log-item { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--border); font-family: sans-serif; font-size: 0.82rem; }
     .linked-log-item:last-child { border-bottom: none; }
     .log-goal-badge { display: inline-flex; align-items: center; gap: 4px; background: rgba(106,158,201,0.15); color: var(--blue); border-radius: 4px; padding: 2px 7px; font-size: 0.75rem; font-family: sans-serif; margin-top: 6px; }
+    .field-hint { font-size: 0.75rem; color: var(--text3); font-family: sans-serif; margin-top: 5px; line-height: 1.5; }
     textarea { min-height: 120px; }
     .form-row { display: grid; gap: 14px; margin-bottom: 14px; }
     .form-row.cols2 { grid-template-columns: 1fr 1fr; }
@@ -534,8 +535,9 @@
     </div>
     <div class="form-row cols2">
       <div>
-        <label>現在の進捗</label>
+        <label>執筆済み文字数（固定ベース）</label>
         <input type="number" id="goal-current" placeholder="0" min="0" />
+        <div class="field-hint">アプリ外で書いた文字数など。<br>リンクされた執筆ログの文字数が自動で加算されます。</div>
       </div>
       <div>
         <label>単位</label>
@@ -570,12 +572,13 @@
 <!-- Update Progress Modal -->
 <div class="modal-overlay" id="progressModal">
   <div class="modal">
-    <div class="modal-title">📊 進捗を更新</div>
+    <div class="modal-title">📊 固定ベース文字数を更新</div>
     <input type="hidden" id="prog-goal-id" />
     <div class="form-row">
       <div>
-        <label>現在の進捗</label>
+        <label>執筆済み文字数（固定ベース）</label>
         <input type="number" id="prog-value" placeholder="0" min="0" />
+        <div class="field-hint">リンクされた執筆ログの合計文字数が別途加算されます。</div>
       </div>
     </div>
     <div class="modal-actions">
@@ -708,14 +711,15 @@ function renderDashboard() {
     gl.innerHTML = '<div style="color:var(--text3);font-size:0.85rem;font-family:sans-serif;padding:8px 0;">目標がありません。<br>「目標管理」タブで追加しましょう。</div>';
   } else {
     gl.innerHTML = data.goals.map(g => {
-      const pct = Math.min(100, Math.round(((g.current||0) / (g.target||1)) * 100));
+      const effectiveCurrent = getEffectiveCurrent(g);
+      const pct = Math.min(100, Math.round((effectiveCurrent / (g.target||1)) * 100));
       return `<div style="margin-bottom:14px;">
         <div style="display:flex;justify-content:space-between;font-size:0.88rem;margin-bottom:4px;font-family:sans-serif;">
           <span style="color:var(--text);">${g.name}</span>
           <span style="color:var(--accent);">${pct}%</span>
         </div>
         <div class="progress-wrap"><div class="progress-bar" style="width:${pct}%"></div></div>
-        <div style="font-size:0.75rem;color:var(--text3);margin-top:4px;font-family:sans-serif;">${(g.current||0).toLocaleString()} / ${(g.target||0).toLocaleString()} ${g.unit||''}</div>
+        <div style="font-size:0.75rem;color:var(--text3);margin-top:4px;font-family:sans-serif;">${effectiveCurrent.toLocaleString()} / ${(g.target||0).toLocaleString()} ${g.unit||''}</div>
       </div>`;
     }).join('');
   }
@@ -777,7 +781,6 @@ function saveQuickLog() {
   selectedMood = '';
   renderDashboard();
   showToast('✅ 記録を保存しました！');
-  if (goalId && wordcount > 0) addWcToGoal(goalId, wordcount);
 }
 
 // ===== LOGS =====
@@ -835,8 +838,6 @@ function saveLog() {
   closeModal('logModal');
   renderLogs();
   showToast('✅ ログを保存しました！');
-  // 新規ログかつ目標リンクあり・文字数あり の場合のみ進捗加算を提案
-  if (!id && goalId && wordcount > 0) addWcToGoal(goalId, wordcount);
 }
 
 function deleteLog(id) {
@@ -898,15 +899,13 @@ function copyFromLastLog() {
   showToast('📋 タイトル・タグ・リンク目標をコピーしました');
 }
 
-function addWcToGoal(goalId, wc) {
-  const g = data.goals.find(x => x.id === goalId);
-  if (!g || !wc) return;
-  if (confirm(`この${wc.toLocaleString()}字を「${g.name}」の進捗に加算しますか？\n現在: ${(g.current||0).toLocaleString()} → ${((g.current||0)+wc).toLocaleString()} ${g.unit||''}`)) {
-    g.current = (g.current || 0) + wc;
-    save();
-    renderDashboard();
-    showToast(`📊「${g.name}」の進捗を更新しました`);
-  }
+// 固定ベース＋リンクログ合計文字数の実効進捗を返す
+function getEffectiveCurrent(g) {
+  const fixed = g.fixedWordcount !== undefined ? (g.fixedWordcount || 0) : (g.current || 0);
+  const linkedWc = data.logs
+    .filter(l => l.goalId === g.id)
+    .reduce((s, l) => s + (parseInt(l.wordcount) || 0), 0);
+  return fixed + linkedWc;
 }
 
 // ===== GOALS =====
@@ -926,7 +925,7 @@ function openGoalModal(id) {
       document.getElementById('goal-name').value = g.name;
       document.getElementById('goal-type').value = g.type;
       document.getElementById('goal-target').value = g.target;
-      document.getElementById('goal-current').value = g.current || 0;
+      document.getElementById('goal-current').value = g.fixedWordcount !== undefined ? (g.fixedWordcount || 0) : (g.current || 0);
       document.getElementById('goal-unit').value = g.unit || '';
       document.getElementById('goal-deadline').value = g.deadline || '';
       document.getElementById('goal-url').value = g.url || '';
@@ -945,7 +944,7 @@ function saveGoal() {
     name: document.getElementById('goal-name').value.trim() || '新しい目標',
     type: typeVal,
     target: parseInt(document.getElementById('goal-target').value) || 0,
-    current: parseInt(document.getElementById('goal-current').value) || 0,
+    fixedWordcount: parseInt(document.getElementById('goal-current').value) || 0,
     unit: document.getElementById('goal-unit').value.trim() || unitDefaults[typeVal] || '',
     deadline: document.getElementById('goal-deadline').value || '',
     url: document.getElementById('goal-url').value.trim() || '',
@@ -966,7 +965,8 @@ function saveGoal() {
 function openProgressModal(id) {
   document.getElementById('prog-goal-id').value = id;
   const g = data.goals.find(x => x.id === id);
-  document.getElementById('prog-value').value = g ? g.current || 0 : 0;
+  const fixed = g ? (g.fixedWordcount !== undefined ? g.fixedWordcount : (g.current || 0)) : 0;
+  document.getElementById('prog-value').value = fixed;
   openModal('progressModal');
 }
 
@@ -974,11 +974,11 @@ function saveProgress() {
   const id = document.getElementById('prog-goal-id').value;
   const val = parseInt(document.getElementById('prog-value').value) || 0;
   const g = data.goals.find(x => x.id === id);
-  if (g) { g.current = val; save(); }
+  if (g) { g.fixedWordcount = val; save(); }
   closeModal('progressModal');
   renderGoals();
   renderDashboard();
-  showToast('📊 進捗を更新しました！');
+  showToast('📊 固定ベース文字数を更新しました！');
 }
 
 function deleteGoal(id) {
@@ -996,7 +996,10 @@ function renderGoals() {
     return;
   }
   el.innerHTML = data.goals.map(g => {
-    const pct = Math.min(100, Math.round(((g.current||0) / (g.target||1)) * 100));
+    const effectiveCurrent = getEffectiveCurrent(g);
+    const fixed = g.fixedWordcount !== undefined ? (g.fixedWordcount || 0) : (g.current || 0);
+    const linkedWc = data.logs.filter(l => l.goalId === g.id).reduce((s, l) => s + (parseInt(l.wordcount)||0), 0);
+    const pct = Math.min(100, Math.round((effectiveCurrent / (g.target||1)) * 100));
     const done = pct >= 100;
     let deadline = '';
     if (g.deadline) {
@@ -1014,17 +1017,19 @@ function renderGoals() {
       </div>
       <div class="progress-wrap"><div class="progress-bar" style="width:${pct}%;${done ? 'background:var(--green);' : ''}"></div></div>
       <div class="goal-detail">
-        ${(g.current||0).toLocaleString()} / ${(g.target||0).toLocaleString()} ${escHtml(g.unit||'')}
+        ${effectiveCurrent.toLocaleString()} / ${(g.target||0).toLocaleString()} ${escHtml(g.unit||'')}
         ${g.deadline ? ` &nbsp;·&nbsp; 期限: ${fmtDate(g.deadline)} ${deadline}` : ''}
+      </div>
+      <div style="font-size:0.75rem;color:var(--text3);font-family:sans-serif;margin-top:4px;">
+        固定ベース ${fixed.toLocaleString()}字 ＋ ログ合計 ${linkedWc.toLocaleString()}字
       </div>
       ${g.url ? `<div style="margin-top:8px;"><a class="goal-url-link" href="${escHtml(g.url)}" target="_blank" rel="noopener noreferrer">🔗 ${escHtml(g.url)}</a></div>` : ''}
       ${g.memo ? `<div class="goal-memo">${escHtml(g.memo)}</div>` : ''}
       ${(()=>{
         const linked = data.logs.filter(l => l.goalId === g.id).sort((a,b) => b.date.localeCompare(a.date));
         if (!linked.length) return '';
-        const totalLinkedWc = linked.reduce((s,l) => s + (parseInt(l.wordcount)||0), 0);
         return `<div class="linked-logs-section">
-          <div class="linked-logs-title">🔗 関連ログ ${linked.length}件 · 合計 ${totalLinkedWc.toLocaleString()}字</div>
+          <div class="linked-logs-title">🔗 関連ログ ${linked.length}件 · 合計 ${linkedWc.toLocaleString()}字</div>
           ${linked.slice(0,3).map(l => `
             <div class="linked-log-item">
               <span style="color:var(--text3);min-width:80px;">${l.date}</span>
