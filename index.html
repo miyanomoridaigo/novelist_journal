@@ -124,6 +124,11 @@
     .goal-url-link { display: inline-flex; align-items: center; gap: 5px; font-size: 0.82rem; color: var(--blue); text-decoration: none; font-family: sans-serif; word-break: break-all; }
     .goal-url-link:hover { text-decoration: underline; }
     .goal-memo { font-size: 0.85rem; color: var(--text2); line-height: 1.7; white-space: pre-wrap; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+    .linked-logs-section { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+    .linked-logs-title { font-size: 0.75rem; color: var(--text3); font-family: sans-serif; margin-bottom: 6px; letter-spacing: 0.06em; }
+    .linked-log-item { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--border); font-family: sans-serif; font-size: 0.82rem; }
+    .linked-log-item:last-child { border-bottom: none; }
+    .log-goal-badge { display: inline-flex; align-items: center; gap: 4px; background: rgba(106,158,201,0.15); color: var(--blue); border-radius: 4px; padding: 2px 7px; font-size: 0.75rem; font-family: sans-serif; margin-top: 6px; }
     textarea { min-height: 120px; }
     .form-row { display: grid; gap: 14px; margin-bottom: 14px; }
     .form-row.cols2 { grid-template-columns: 1fr 1fr; }
@@ -340,7 +345,10 @@
       <!-- 今日の執筆 -->
       <div>
         <div class="card">
-          <div class="card-title">今日の執筆記録</div>
+          <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;">
+            今日の執筆記録
+            <button class="btn btn-ghost btn-sm" onclick="copyFromLastLog()" style="font-size:0.75rem;padding:3px 9px;">📋 前回からコピー</button>
+          </div>
           <div class="form-row">
             <div>
               <label>タイトル / 作品名</label>
@@ -374,6 +382,12 @@
             <div>
               <label>タグ（カンマ区切り）</label>
               <input type="text" id="quick-tags" placeholder="例: 第3章, キャラクター, 会話" />
+            </div>
+          </div>
+          <div class="form-row" style="margin-bottom:14px;">
+            <div>
+              <label>目標にリンク（任意）</label>
+              <select id="quick-goal"><option value="">-- 目標にリンクしない --</option></select>
             </div>
           </div>
           <button class="btn btn-primary" onclick="saveQuickLog()">📝 記録を保存</button>
@@ -477,6 +491,12 @@
       <div>
         <label>タグ（カンマ区切り）</label>
         <input type="text" id="log-tags" placeholder="例: 第3章, 伏線, 感情描写" />
+      </div>
+    </div>
+    <div class="form-row">
+      <div>
+        <label>目標にリンク（任意）</label>
+        <select id="log-goal"><option value="">-- 目標にリンクしない --</option></select>
       </div>
     </div>
     <div class="modal-actions">
@@ -679,6 +699,8 @@ function renderDashboard() {
     <div class="stat-card"><div class="stat-num">${totalWC.toLocaleString()}</div><div class="stat-label">累計文字数</div></div>
     <div class="stat-card"><div class="stat-num">${streak}</div><div class="stat-label">連続執筆日数 🔥</div></div>
   `;
+  const qg = document.getElementById('quick-goal');
+  if (qg) qg.innerHTML = buildGoalOptions(qg.value || '');
 
   // Goals
   const gl = document.getElementById('dashGoals');
@@ -739,10 +761,11 @@ function saveQuickLog() {
   const wc = document.getElementById('quick-wc').value;
   const note = document.getElementById('quick-note').value.trim();
   const tags = document.getElementById('quick-tags').value.split(',').map(t => t.trim()).filter(Boolean);
+  const goalId = document.getElementById('quick-goal')?.value || '';
+  const wordcount = parseInt(wc) || 0;
   const entry = {
     id: uid(), date: today(), title: title || '無題',
-    wordcount: parseInt(wc) || 0, mood: selectedMood,
-    note, tags
+    wordcount, mood: selectedMood, note, tags, goalId
   };
   data.logs.unshift(entry);
   save();
@@ -754,6 +777,7 @@ function saveQuickLog() {
   selectedMood = '';
   renderDashboard();
   showToast('✅ 記録を保存しました！');
+  if (goalId && wordcount > 0) addWcToGoal(goalId, wordcount);
 }
 
 // ===== LOGS =====
@@ -766,6 +790,7 @@ function openLogModal(id) {
   document.getElementById('log-tags').value = '';
   document.querySelectorAll('#moodRowModal .mood-btn').forEach(b => b.classList.remove('selected'));
   selectedMoodModal = '';
+  let preGoalId = '';
   if (id) {
     const l = data.logs.find(x => x.id === id);
     if (l) {
@@ -775,24 +800,30 @@ function openLogModal(id) {
       document.getElementById('log-note').value = l.note;
       document.getElementById('log-tags').value = (l.tags||[]).join(', ');
       selectedMoodModal = l.mood || '';
+      preGoalId = l.goalId || '';
       document.querySelectorAll('#moodRowModal .mood-btn').forEach(b => {
         if (b.dataset.mood === l.mood) b.classList.add('selected');
       });
     }
   }
+  document.getElementById('log-goal').innerHTML = buildGoalOptions(preGoalId);
   openModal('logModal');
 }
 
 function saveLog() {
   const id = document.getElementById('log-edit-id').value;
+  const wordcount = parseInt(document.getElementById('log-wc').value) || 0;
+  const goalId = document.getElementById('log-goal').value || '';
+  const prevGoalId = id ? (data.logs.find(x => x.id === id)?.goalId || '') : '';
   const entry = {
     id: id || uid(),
     date: document.getElementById('log-date').value || today(),
     title: document.getElementById('log-title').value.trim() || '無題',
-    wordcount: parseInt(document.getElementById('log-wc').value) || 0,
+    wordcount,
     mood: selectedMoodModal,
     note: document.getElementById('log-note').value.trim(),
-    tags: document.getElementById('log-tags').value.split(',').map(t=>t.trim()).filter(Boolean)
+    tags: document.getElementById('log-tags').value.split(',').map(t=>t.trim()).filter(Boolean),
+    goalId
   };
   if (id) {
     const i = data.logs.findIndex(x => x.id === id);
@@ -804,6 +835,8 @@ function saveLog() {
   closeModal('logModal');
   renderLogs();
   showToast('✅ ログを保存しました！');
+  // 新規ログかつ目標リンクあり・文字数あり の場合のみ進捗加算を提案
+  if (!id && goalId && wordcount > 0) addWcToGoal(goalId, wordcount);
 }
 
 function deleteLog(id) {
@@ -839,10 +872,41 @@ function renderLogs() {
         ${l.mood ? `<span class="log-mood">${l.mood}</span>` : ''}
       </div>
       <div class="log-title">${l.title||'無題'}</div>
+      ${l.goalId ? (()=>{ const g = data.goals.find(x=>x.id===l.goalId); return g ? `<span class="log-goal-badge">🎯 ${escHtml(g.name)}</span>` : ''; })() : ''}
       ${l.note ? `<div class="log-text">${escHtml(l.note)}</div>` : ''}
       ${(l.tags||[]).length ? `<div class="log-tags">${l.tags.map(t=>`<span class="tag">${escHtml(t)}</span>`).join('')}</div>` : ''}
     </div>
   `).join('');
+}
+
+// ===== GOAL HELPERS =====
+function buildGoalOptions(selectedId) {
+  let opts = '<option value="">-- 目標にリンクしない --</option>';
+  data.goals.forEach(g => {
+    opts += `<option value="${g.id}"${g.id === selectedId ? ' selected' : ''}>${escHtml(g.name)}</option>`;
+  });
+  return opts;
+}
+
+function copyFromLastLog() {
+  const last = [...data.logs].sort((a, b) => b.date.localeCompare(a.date))[0];
+  if (!last) { showToast('⚠️ コピー元のログがありません'); return; }
+  document.getElementById('quick-title').value = last.title || '';
+  document.getElementById('quick-tags').value = (last.tags || []).join(', ');
+  const qg = document.getElementById('quick-goal');
+  if (qg) qg.value = last.goalId || '';
+  showToast('📋 タイトル・タグ・リンク目標をコピーしました');
+}
+
+function addWcToGoal(goalId, wc) {
+  const g = data.goals.find(x => x.id === goalId);
+  if (!g || !wc) return;
+  if (confirm(`この${wc.toLocaleString()}字を「${g.name}」の進捗に加算しますか？\n現在: ${(g.current||0).toLocaleString()} → ${((g.current||0)+wc).toLocaleString()} ${g.unit||''}`)) {
+    g.current = (g.current || 0) + wc;
+    save();
+    renderDashboard();
+    showToast(`📊「${g.name}」の進捗を更新しました`);
+  }
 }
 
 // ===== GOALS =====
@@ -955,6 +1019,22 @@ function renderGoals() {
       </div>
       ${g.url ? `<div style="margin-top:8px;"><a class="goal-url-link" href="${escHtml(g.url)}" target="_blank" rel="noopener noreferrer">🔗 ${escHtml(g.url)}</a></div>` : ''}
       ${g.memo ? `<div class="goal-memo">${escHtml(g.memo)}</div>` : ''}
+      ${(()=>{
+        const linked = data.logs.filter(l => l.goalId === g.id).sort((a,b) => b.date.localeCompare(a.date));
+        if (!linked.length) return '';
+        const totalLinkedWc = linked.reduce((s,l) => s + (parseInt(l.wordcount)||0), 0);
+        return `<div class="linked-logs-section">
+          <div class="linked-logs-title">🔗 関連ログ ${linked.length}件 · 合計 ${totalLinkedWc.toLocaleString()}字</div>
+          ${linked.slice(0,3).map(l => `
+            <div class="linked-log-item">
+              <span style="color:var(--text3);min-width:80px;">${l.date}</span>
+              <span style="flex:1;color:var(--text);">${escHtml(l.title||'無題')}</span>
+              ${l.wordcount ? `<span style="color:var(--accent2);">${parseInt(l.wordcount).toLocaleString()}字</span>` : ''}
+              ${l.mood ? `<span>${l.mood}</span>` : ''}
+            </div>`).join('')}
+          ${linked.length > 3 ? `<div style="font-size:0.75rem;color:var(--text3);font-family:sans-serif;margin-top:4px;">…他 ${linked.length-3} 件</div>` : ''}
+        </div>`;
+      })()}
       <div class="goal-actions">
         <button class="btn btn-ghost btn-sm" onclick="openProgressModal('${g.id}')">📊 進捗更新</button>
         <button class="btn btn-ghost btn-sm" onclick="openGoalModal('${g.id}')">✏️ 編集</button>
