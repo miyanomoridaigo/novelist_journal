@@ -1126,7 +1126,7 @@ function renderGoals() {
         </div>
         <span class="goal-pct">${pct}%</span>
       </div>
-      <div class="progress-wrap"><div class="progress-bar" style="width:${pct}%;${done ? 'background:var(--green);' : ''}"></div></div>
+      <div class="progress-wrap"><div class="progress-bar" style="width:${pct}%;${sm.border ? 'background:'+sm.border+';' : ''}"></div></div>
       <div class="goal-detail">
         ${effectiveCurrent.toLocaleString()} / ${(g.target||0).toLocaleString()} ${escHtml(g.unit||'')}
         ${g.deadline ? ` &nbsp;·&nbsp; 期限: ${fmtDate(g.deadline)} ${deadline}` : ''}
