@@ -246,6 +246,14 @@
     .goal-pct { font-size: 0.85rem; color: var(--accent); font-family: sans-serif; font-weight: 600; }
     .goal-detail { font-size: 0.82rem; color: var(--text3); font-family: sans-serif; margin-top: 8px; }
     .goal-actions { display: flex; gap: 6px; margin-top: 10px; }
+    .status-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 4px; font-size: 0.72rem; font-family: sans-serif; font-weight: 600; letter-spacing: 0.03em; white-space: nowrap; }
+    .st-idle     { background: rgba(122,96,80,0.18);   color: var(--text3); }
+    .st-concept  { background: rgba(106,158,201,0.2);  color: var(--blue); }
+    .st-writing  { background: rgba(201,150,106,0.22); color: var(--accent); }
+    .st-revision { background: rgba(201,180,106,0.22); color: var(--yellow); }
+    .st-done     { background: rgba(122,170,110,0.22); color: var(--green); }
+    .st-abandon  { background: rgba(192,97,74,0.18);   color: var(--red); }
+    .st-pause    { background: rgba(100,100,100,0.18); color: var(--text3); }
 
     /* ===== MOOD BUTTONS ===== */
     .mood-row { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -526,10 +534,22 @@
   <div class="modal">
     <div class="modal-title">🎯 目標を設定</div>
     <input type="hidden" id="goal-edit-id" />
-    <div class="form-row">
+    <div class="form-row cols2">
       <div>
         <label>目標名</label>
         <input type="text" id="goal-name" placeholder="例: 第1章を完成させる" />
+      </div>
+      <div>
+        <label>ステータス</label>
+        <select id="goal-status">
+          <option value="未着手">未着手</option>
+          <option value="構想中">構想中</option>
+          <option value="執筆中">執筆中</option>
+          <option value="推敲中">推敲中</option>
+          <option value="完了">完了</option>
+          <option value="断念">断念</option>
+          <option value="中断">中断</option>
+        </select>
       </div>
     </div>
     <div class="form-row cols2">
@@ -979,6 +999,7 @@ function getEffectiveCurrent(g) {
 function openGoalModal(id) {
   document.getElementById('goal-edit-id').value = id || '';
   document.getElementById('goal-name').value = '';
+  document.getElementById('goal-status').value = '未着手';
   document.getElementById('goal-type').value = 'wordcount';
   document.getElementById('goal-target').value = '';
   document.getElementById('goal-current').value = '';
@@ -990,6 +1011,7 @@ function openGoalModal(id) {
     const g = data.goals.find(x => x.id === id);
     if (g) {
       document.getElementById('goal-name').value = g.name;
+      document.getElementById('goal-status').value = g.status || '未着手';
       document.getElementById('goal-type').value = g.type;
       document.getElementById('goal-target').value = g.target;
       document.getElementById('goal-current').value = g.fixedWordcount !== undefined ? (g.fixedWordcount || 0) : (g.current || 0);
@@ -1009,6 +1031,7 @@ function saveGoal() {
   const entry = {
     id: id || uid(),
     name: document.getElementById('goal-name').value.trim() || '新しい目標',
+    status: document.getElementById('goal-status').value || '未着手',
     type: typeVal,
     target: parseInt(document.getElementById('goal-target').value) || 0,
     fixedWordcount: parseInt(document.getElementById('goal-current').value) || 0,
@@ -1056,18 +1079,35 @@ function deleteGoal(id) {
   showToast('🗑 削除しました');
 }
 
+// ステータスの定義（表示名 → CSSクラス・ボーダー色・アイコン・末尾送り）
+const STATUS_META = {
+  '未着手': { cls: 'st-idle',     icon: '📋', border: '',                    tail: false },
+  '構想中': { cls: 'st-concept',  icon: '💭', border: '',                    tail: false },
+  '執筆中': { cls: 'st-writing',  icon: '✍️', border: 'var(--accent)',       tail: false },
+  '推敲中': { cls: 'st-revision', icon: '🔍', border: 'var(--yellow)',       tail: false },
+  '完了':   { cls: 'st-done',     icon: '✅', border: 'var(--green)',        tail: true  },
+  '断念':   { cls: 'st-abandon',  icon: '🚫', border: 'var(--red)',          tail: true  },
+  '中断':   { cls: 'st-pause',    icon: '⏸️', border: 'rgba(100,100,100,0.5)', tail: true  },
+};
+
 function renderGoals() {
   const el = document.getElementById('goalList');
   if (data.goals.length === 0) {
     el.innerHTML = `<div class="empty-state"><div class="icon">🎯</div><p>目標がまだありません。<br>執筆の目標を設定しましょう！</p></div>`;
     return;
   }
-  el.innerHTML = data.goals.map(g => {
+  // 完了・断念・中断を末尾に
+  const sorted = [...data.goals].sort((a, b) => {
+    const aTail = (STATUS_META[a.status || '未着手'] || STATUS_META['未着手']).tail;
+    const bTail = (STATUS_META[b.status || '未着手'] || STATUS_META['未着手']).tail;
+    return aTail === bTail ? 0 : aTail ? 1 : -1;
+  });
+  el.innerHTML = sorted.map(g => {
+    const sm = STATUS_META[g.status || '未着手'] || STATUS_META['未着手'];
     const effectiveCurrent = getEffectiveCurrent(g);
     const fixed = g.fixedWordcount !== undefined ? (g.fixedWordcount || 0) : (g.current || 0);
     const linkedWc = data.logs.filter(l => l.goalId === g.id).reduce((s, l) => s + (parseInt(l.wordcount)||0), 0);
     const pct = Math.min(100, Math.round((effectiveCurrent / (g.target||1)) * 100));
-    const done = pct >= 100;
     let deadline = '';
     if (g.deadline) {
       const today_d = new Date(); today_d.setHours(0,0,0,0);
@@ -1077,9 +1117,13 @@ function renderGoals() {
       else if (diff === 0) deadline = `<span style="color:var(--yellow);font-size:0.78rem;">今日が期限</span>`;
       else deadline = `<span style="font-size:0.78rem;">残り ${diff}日</span>`;
     }
-    return `<div class="goal-item" style="${done ? 'border-color:var(--green);' : ''}">
+    const borderStyle = sm.border ? `border-color:${sm.border};` : '';
+    return `<div class="goal-item" style="${sm.tail ? 'opacity:0.75;' : ''}${borderStyle}">
       <div class="goal-header">
-        <span class="goal-name">${done ? '✅ ' : ''}${escHtml(g.name)}</span>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <span class="goal-name">${escHtml(g.name)}</span>
+          <span class="status-badge ${sm.cls}">${sm.icon} ${escHtml(g.status || '未着手')}</span>
+        </div>
         <span class="goal-pct">${pct}%</span>
       </div>
       <div class="progress-wrap"><div class="progress-bar" style="width:${pct}%;${done ? 'background:var(--green);' : ''}"></div></div>
