@@ -1,23 +1,31 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <!-- 背景: 明るい琥珀ゴールド -->
-  <rect width="32" height="32" rx="6" fill="#F5A623"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <rect width="512" height="512" rx="100" fill="#0F172A" />
 
-  <!-- 羽根ペン（白でくっきり） -->
-  <!-- 羽根の主体 -->
-  <path d="M26 3 C30 2 32 8 27 16 C24.5 12 20 12 18 16 C15.5 11.5 18 6 26 3Z" fill="white" opacity="0.95"/>
-  <!-- 羽根の軸 -->
-  <path d="M25 3.5 C23 8 21 12 18.5 18" stroke="#C07A10" stroke-width="1.2" fill="none" stroke-linecap="round"/>
-  <!-- 羽根の細部ライン -->
-  <path d="M23 6 C24.5 8 25.5 11 26 14" stroke="white" stroke-width="0.6" fill="none" opacity="0.5" stroke-linecap="round"/>
-  <path d="M20 8 C21.5 10 22.5 13 23 16" stroke="white" stroke-width="0.5" fill="none" opacity="0.4" stroke-linecap="round"/>
+  <g transform="translate(8, -8)">
 
-  <!-- ペン先 -->
-  <polygon points="18.5,18 16,23 21,20" fill="#2D1E0A"/>
-  <!-- ペン先のハイライト -->
-  <line x1="17.5" y1="20" x2="20" y2="19" stroke="#F5A623" stroke-width="0.7" stroke-linecap="round"/>
+    <g fill="none" stroke="#FFFFFF" stroke-width="20" stroke-linejoin="round" stroke-linecap="round">
+        <path d="M 80,140 C 120,130 170,140 210,170 V 390 C 170,360 120,350 80,360 Z" />
 
-  <!-- 筆記ライン（書いている感じ） -->
-  <line x1="5" y1="22" x2="15" y2="22" stroke="#2D1E0A" stroke-width="1.8" stroke-linecap="round" opacity="0.9"/>
-  <line x1="5" y1="26" x2="13" y2="26" stroke="#2D1E0A" stroke-width="1.8" stroke-linecap="round" opacity="0.7"/>
-  <line x1="5" y1="30" x2="11" y2="30" stroke="#2D1E0A" stroke-width="1.8" stroke-linecap="round" opacity="0.5"/>
+        <path d="M 110,110 C 150,100 200,110 240,140 V 360 C 200,330 150,320 110,330 Z" fill="#0F172A" />
+
+        <path d="M 140,180 Q 175,175 205,195" />
+        <path d="M 140,230 Q 175,225 205,245" />
+        <path d="M 140,280 Q 175,275 205,295" />
+    </g>
+
+    <path d="M 140,330 V 430 L 165,405 L 190,430 V 335" fill="#FFFFFF" />
+
+    <g>
+        <path d="M 270,110 H 370 V 220 H 270 Z" fill="#FFFFFF" />
+        <path d="M 270,195 H 370" stroke="#0F172A" stroke-width="16" />
+
+        <path d="M 265,240 H 375 V 255 H 265 Z" fill="#FFFFFF" />
+
+        <path d="M 250,275 H 390 C 410,325 400,360 370,390 L 320,480 L 270,390 C 240,360 230,325 250,275 Z" fill="#FFFFFF" />
+
+        <circle cx="320" cy="340" r="16" fill="#0F172A" />
+        <path d="M 314,340 H 326 V 480 H 314 Z" fill="#0F172A" />
+    </g>
+
+  </g>
 </svg>
