@@ -330,6 +330,56 @@
     }
     .toast.show { opacity: 1; transform: translateY(0); }
 
+    /* ===== TODO LIST ===== */
+    .todo-list { display: flex; flex-direction: column; gap: 10px; }
+    .todo-item {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px 14px 14px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      transition: border-color 0.2s;
+      position: relative;
+    }
+    .todo-item:hover { border-color: var(--accent2); }
+    .todo-item.done { opacity: 0.55; }
+    .todo-check {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      cursor: pointer;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s;
+      margin-top: 1px;
+      background: transparent;
+      font-size: 0.75rem;
+    }
+    .todo-check:hover { border-color: var(--accent); }
+    .todo-item.done .todo-check { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+    .todo-body { flex: 1; min-width: 0; padding-right: 56px; }
+    .todo-text { font-size: 0.95rem; color: var(--text); line-height: 1.55; word-break: break-word; }
+    .todo-item.done .todo-text { text-decoration: line-through; color: var(--text3); }
+    .todo-meta { display: flex; align-items: center; gap: 8px; margin-top: 7px; flex-wrap: wrap; }
+    .todo-priority { display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 4px; font-size: 0.72rem; font-family: sans-serif; font-weight: 600; }
+    .pri-high { background: rgba(192,97,74,0.2);  color: var(--red); }
+    .pri-mid  { background: rgba(201,180,106,0.2); color: var(--yellow); }
+    .pri-low  { background: rgba(106,158,201,0.2); color: var(--blue); }
+    .todo-due { font-size: 0.75rem; color: var(--text3); font-family: sans-serif; }
+    .todo-due.overdue { color: var(--red); font-weight: 600; }
+    .todo-due.today-due { color: var(--yellow); font-weight: 600; }
+    .todo-cat-badge { font-size: 0.75rem; color: var(--text3); font-family: sans-serif; }
+    .todo-actions { position: absolute; top: 10px; right: 10px; display: flex; gap: 4px; }
+    .todo-filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 18px; }
+    .filter-btn { background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; color: var(--text2); font-size: 0.8rem; padding: 5px 13px; cursor: pointer; font-family: sans-serif; transition: all 0.15s; }
+    .filter-btn:hover { border-color: var(--accent2); color: var(--text); }
+    .filter-btn.active { background: var(--accent); color: #1a1614; border-color: var(--accent); font-weight: 600; }
+    .todo-summary { font-size: 0.82rem; color: var(--text3); font-family: sans-serif; margin-bottom: 14px; }
+    .todo-quick-row { display: flex; gap: 10px; align-items: center; }
+    .todo-quick-row input { flex: 1; }
+
     /* ===== RESPONSIVE ===== */
     @media (max-width: 700px) {
       .grid2, .grid3 { grid-template-columns: 1fr; }
@@ -357,13 +407,14 @@
   <button class="tab-btn" onclick="switchTab('log')">執筆ログ</button>
   <button class="tab-btn" onclick="switchTab('goals')">目標管理</button>
   <button class="tab-btn" onclick="switchTab('inspo')">インスピレーション</button>
+  <button class="tab-btn" onclick="switchTab('todo')">TODOリスト</button>
 </div>
 
 <main>
 
   <!-- ===== DASHBOARD TAB ===== -->
   <div class="tab-panel active" id="tab-dashboard">
-    <div class="grid3" id="statGrid" style="margin-bottom:22px;"></div>
+    <div class="grid3" id="statGrid" style="margin-bottom:22px;grid-template-columns:repeat(4,1fr);"></div>
     <div class="grid2">
       <!-- 今日の執筆 -->
       <div>
@@ -465,6 +516,36 @@
       <input type="text" id="inspoSearch" placeholder="メモを検索…" oninput="renderInspo()" />
     </div>
     <div class="inspo-grid" id="inspoGrid"></div>
+  </div>
+
+  <!-- ===== TODO TAB ===== -->
+  <div class="tab-panel" id="tab-todo">
+    <div class="section-header">
+      <div class="section-title">TODOリスト</div>
+      <button class="btn btn-primary btn-sm" onclick="openTodoModal()">＋ タスクを追加</button>
+    </div>
+
+    <!-- クイック追加 -->
+    <div class="card" style="margin-bottom:18px;">
+      <div class="card-title">クイック追加</div>
+      <div class="todo-quick-row">
+        <input type="text" id="todo-quick-input" placeholder="タスクを入力して Enter…" onkeydown="if(event.key==='Enter')quickAddTodo()" />
+        <button class="btn btn-primary" onclick="quickAddTodo()">追加</button>
+      </div>
+    </div>
+
+    <!-- フィルター -->
+    <div class="todo-filters">
+      <button class="filter-btn active" onclick="setTodoFilter('all',this)">すべて</button>
+      <button class="filter-btn" onclick="setTodoFilter('active',this)">未完了</button>
+      <button class="filter-btn" onclick="setTodoFilter('done',this)">完了済み</button>
+      <button class="filter-btn" onclick="setTodoFilter('high',this)">🔴 高優先</button>
+      <button class="filter-btn" onclick="setTodoFilter('mid',this)">🟡 中優先</button>
+      <button class="filter-btn" onclick="setTodoFilter('low',this)">🔵 低優先</button>
+    </div>
+
+    <div class="todo-summary" id="todoSummary"></div>
+    <div class="todo-list" id="todoList"></div>
   </div>
 
 </main>
@@ -701,6 +782,50 @@ create policy "allow all" on journal_data for all using (true);</pre>
   </div>
 </div>
 
+<!-- Todo Modal -->
+<div class="modal-overlay" id="todoModal">
+  <div class="modal">
+    <div class="modal-title">✅ タスクを追加・編集</div>
+    <input type="hidden" id="todo-edit-id" />
+    <div class="form-row">
+      <div>
+        <label>タスク内容</label>
+        <textarea id="todo-text" placeholder="タスクの内容を入力…" style="min-height:80px;"></textarea>
+      </div>
+    </div>
+    <div class="form-row cols2">
+      <div>
+        <label>優先度</label>
+        <select id="todo-priority">
+          <option value="high">🔴 高</option>
+          <option value="mid" selected>🟡 中</option>
+          <option value="low">🔵 低</option>
+        </select>
+      </div>
+      <div>
+        <label>カテゴリ</label>
+        <select id="todo-cat">
+          <option value="writing">✍️ 執筆タスク</option>
+          <option value="research">🔍 調査・リサーチ</option>
+          <option value="edit">✏️ 編集・推敲</option>
+          <option value="submit">📬 投稿・提出</option>
+          <option value="other">📌 その他</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div>
+        <label>期限（任意）</label>
+        <input type="date" id="todo-due" />
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('todoModal')">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveTodo()">保存</button>
+    </div>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
@@ -709,7 +834,8 @@ create policy "allow all" on journal_data for all using (true);</pre>
 let data = {
   logs: [],
   goals: [],
-  inspo: []
+  inspo: [],
+  todos: []
 };
 
 function load() {
@@ -759,6 +885,7 @@ function switchTab(name) {
   if (name === 'log') renderLogs();
   if (name === 'goals') renderGoals();
   if (name === 'inspo') renderInspo();
+  if (name === 'todo')  renderTodos();
 }
 
 // ===== MOOD =====
@@ -782,10 +909,12 @@ function renderDashboard() {
   const todayLogs = data.logs.filter(l => l.date === today());
   const todayWC = todayLogs.reduce((s, l) => s + (parseInt(l.wordcount) || 0), 0);
   const streak = calcStreak();
+  const activeTodos = (data.todos||[]).filter(t => !t.done).length;
   document.getElementById('statGrid').innerHTML = `
     <div class="stat-card"><div class="stat-num">${todayWC.toLocaleString()}</div><div class="stat-label">今日の文字数</div></div>
     <div class="stat-card"><div class="stat-num">${totalWC.toLocaleString()}</div><div class="stat-label">累計文字数</div></div>
     <div class="stat-card"><div class="stat-num">${streak}</div><div class="stat-label">連続執筆日数 🔥</div></div>
+    <div class="stat-card" style="cursor:pointer;" onclick="document.querySelectorAll('.tab-btn')[4].click()"><div class="stat-num" style="color:${activeTodos>0?'var(--accent)':'var(--green)'};">${activeTodos}</div><div class="stat-label">未完了TODO ✅</div></div>
   `;
   const qg = document.getElementById('quick-goal');
   if (qg) qg.innerHTML = buildGoalOptions(qg.value || '');
@@ -1509,6 +1638,158 @@ async function autoLoadFromCloud() {
   } catch(e) {
     console.warn('[AutoLoad]', e.message);
   }
+}
+
+// ===== TODO LIST =====
+let todoFilter = 'all';
+
+const TODO_CAT_LABELS = {
+  writing:  '✍️ 執筆タスク',
+  research: '🔍 調査・リサーチ',
+  edit:     '✏️ 編集・推敲',
+  submit:   '📬 投稿・提出',
+  other:    '📌 その他'
+};
+const TODO_PRI_LABELS = { high: '🔴 高', mid: '🟡 中', low: '🔵 低' };
+const TODO_PRI_CLS    = { high: 'pri-high', mid: 'pri-mid', low: 'pri-low' };
+const TODO_PRI_SORT   = { high: 0, mid: 1, low: 2 };
+
+function setTodoFilter(f, btn) {
+  todoFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderTodos();
+}
+
+function openTodoModal(id) {
+  document.getElementById('todo-edit-id').value = id || '';
+  document.getElementById('todo-text').value = '';
+  document.getElementById('todo-priority').value = 'mid';
+  document.getElementById('todo-cat').value = 'writing';
+  document.getElementById('todo-due').value = '';
+  if (id) {
+    const t = data.todos.find(x => x.id === id);
+    if (t) {
+      document.getElementById('todo-text').value = t.text;
+      document.getElementById('todo-priority').value = t.priority || 'mid';
+      document.getElementById('todo-cat').value = t.cat || 'other';
+      document.getElementById('todo-due').value = t.due || '';
+    }
+  }
+  openModal('todoModal');
+}
+
+function saveTodo() {
+  const id = document.getElementById('todo-edit-id').value;
+  const text = document.getElementById('todo-text').value.trim();
+  if (!text) { showToast('⚠️ タスク内容を入力してください'); return; }
+  const entry = {
+    id: id || uid(),
+    text,
+    priority: document.getElementById('todo-priority').value || 'mid',
+    cat: document.getElementById('todo-cat').value || 'other',
+    due: document.getElementById('todo-due').value || '',
+    done: false,
+    createdAt: new Date().toISOString()
+  };
+  if (id) {
+    const i = data.todos.findIndex(x => x.id === id);
+    if (i !== -1) { entry.done = data.todos[i].done; entry.createdAt = data.todos[i].createdAt; data.todos[i] = entry; }
+  } else {
+    data.todos.unshift(entry);
+  }
+  save();
+  closeModal('todoModal');
+  renderTodos();
+  showToast('✅ タスクを保存しました！');
+}
+
+function quickAddTodo() {
+  const inp = document.getElementById('todo-quick-input');
+  const text = inp.value.trim();
+  if (!text) return;
+  data.todos.unshift({ id: uid(), text, priority: 'mid', cat: 'other', due: '', done: false, createdAt: new Date().toISOString() });
+  save();
+  inp.value = '';
+  renderTodos();
+  showToast('✅ タスクを追加しました！');
+}
+
+function toggleTodo(id) {
+  const t = data.todos.find(x => x.id === id);
+  if (t) { t.done = !t.done; save(); renderTodos(); }
+}
+
+function deleteTodo(id) {
+  if (!confirm('このタスクを削除しますか？')) return;
+  data.todos = data.todos.filter(x => x.id !== id);
+  save();
+  renderTodos();
+  showToast('🗑 削除しました');
+}
+
+function renderTodos() {
+  if (!data.todos) data.todos = [];
+  let items = [...data.todos];
+
+  // フィルター適用
+  if (todoFilter === 'active') items = items.filter(t => !t.done);
+  else if (todoFilter === 'done') items = items.filter(t => t.done);
+  else if (todoFilter === 'high') items = items.filter(t => t.priority === 'high');
+  else if (todoFilter === 'mid')  items = items.filter(t => t.priority === 'mid');
+  else if (todoFilter === 'low')  items = items.filter(t => t.priority === 'low');
+
+  // ソート: 未完了→優先度→作成日 / 完了済みは末尾
+  items.sort((a, b) => {
+    if (a.done !== b.done) return a.done ? 1 : -1;
+    const pd = (TODO_PRI_SORT[a.priority]||1) - (TODO_PRI_SORT[b.priority]||1);
+    if (pd !== 0) return pd;
+    return (a.createdAt||'').localeCompare(b.createdAt||'');
+  });
+
+  // サマリー
+  const total  = data.todos.length;
+  const active = data.todos.filter(t => !t.done).length;
+  const done   = total - active;
+  const sumEl  = document.getElementById('todoSummary');
+  if (sumEl) sumEl.textContent = `未完了 ${active}件 ／ 完了済み ${done}件 ／ 合計 ${total}件`;
+
+  const el = document.getElementById('todoList');
+  if (!el) return;
+  if (items.length === 0) {
+    el.innerHTML = `<div class="empty-state"><div class="icon">✅</div><p>${todoFilter === 'done' ? '完了済みのタスクはありません。' : 'タスクがありません。<br>上のフォームからタスクを追加しましょう！'}</p></div>`;
+    return;
+  }
+
+  const todayStr = today();
+  el.innerHTML = items.map(t => {
+    let dueHtml = '';
+    if (t.due) {
+      const diff = Math.round((new Date(t.due+'T00:00:00') - new Date(todayStr+'T00:00:00')) / 86400000);
+      let cls = 'todo-due';
+      let label = `📅 ${fmtDate(t.due)}`;
+      if (!t.done && diff < 0)  { cls += ' overdue';   label = `⚠️ 期限切れ (${fmtDate(t.due)})`; }
+      if (!t.done && diff === 0) { cls += ' today-due'; label = `⏰ 今日が期限`; }
+      if (!t.done && diff > 0)   { label = `📅 残り${diff}日 (${fmtDate(t.due)})`; }
+      dueHtml = `<span class="${cls}">${label}</span>`;
+    }
+    return `
+    <div class="todo-item${t.done ? ' done' : ''}">
+      <button class="todo-check" onclick="toggleTodo('${t.id}')" title="${t.done ? '未完了に戻す' : '完了にする'}">${t.done ? '✓' : ''}</button>
+      <div class="todo-body">
+        <div class="todo-text">${escHtml(t.text)}</div>
+        <div class="todo-meta">
+          <span class="todo-priority ${TODO_PRI_CLS[t.priority]||'pri-mid'}">${TODO_PRI_LABELS[t.priority]||'中'}</span>
+          <span class="todo-cat-badge">${TODO_CAT_LABELS[t.cat]||'その他'}</span>
+          ${dueHtml}
+        </div>
+      </div>
+      <div class="todo-actions">
+        <button class="btn btn-ghost btn-sm" onclick="openTodoModal('${t.id}')" title="編集">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteTodo('${t.id}')" title="削除">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 // ===== INIT =====
