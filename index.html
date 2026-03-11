@@ -924,7 +924,12 @@ function renderDashboard() {
   if (data.goals.length === 0) {
     gl.innerHTML = '<div style="color:var(--text3);font-size:0.85rem;font-family:sans-serif;padding:8px 0;">目標がありません。<br>「目標管理」タブで追加しましょう。</div>';
   } else {
-    gl.innerHTML = data.goals.map(g => {
+    const sortedGoals = [...data.goals].sort((a, b) => {
+      const aTail = (STATUS_META[a.status || '未着手'] || STATUS_META['未着手']).tail;
+      const bTail = (STATUS_META[b.status || '未着手'] || STATUS_META['未着手']).tail;
+      return aTail === bTail ? 0 : aTail ? 1 : -1;
+    });
+    gl.innerHTML = sortedGoals.map(g => {
       const effectiveCurrent = getEffectiveCurrent(g);
       const pct = Math.min(100, Math.round((effectiveCurrent / (g.target||1)) * 100));
       return `<div style="margin-bottom:14px;">
